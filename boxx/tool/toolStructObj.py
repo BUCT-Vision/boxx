@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 from ..ylsys import py2
 from ..ylcompat import istype
 
+import sys
 import inspect
 from collections import defaultdict
 
@@ -205,7 +206,24 @@ def typestr(instance):
     u'dict'
     '''
     return typeNameOf(type(instance))
+typestr = FunAddMagicMethod(typestr)
 
+def strMethodForDiraAttrs(self, pattern='^[^_]'):
+    '''
+    the default of __str__ method in Class
+    
+    will return string of dira(self) 
+    
+    '''
+    from boxx import dira, PrintStrCollect
+    printf = PrintStrCollect()
+    dira(self, pattern=pattern, printf=printf, printClassFathers=False)
+    s = str(printf)
+    if py2:
+        s = s[s.index(u'└'.encode('utf-8')):]
+        return s
+    s = s[s.index('└'):]
+    return s
 
 def nextiter(iterr, raiseException=True):
     '''
@@ -247,9 +265,149 @@ def getfather(objOrType):
     '''
     return getfathers(objOrType)[0]
 getfather = FunAddMagicMethod(getfather)
-
     
-typestr = FunAddMagicMethod(typestr)
+
+def setself(self=None):
+    '''
+    set all method(*args)  to self.__dict__ 
+    
+    >>> class A():
+    ...     def __init__(self, attr='attr'):
+    ...         setself()
+    >>> a=A()
+    >>> a.attr
+    'attr'
+    '''
+    local = sys._getframe(1).f_locals
+    if self is None:
+        self = local['self']
+    self.__dict__.update(local)
+#    tree-local
+
+def unfoldself(self=None):
+    '''
+    set all self.__dict__ to locals()
+    
+    >>> class A():
+    ...     def __init__(self):
+    ...         self.attr='attr'
+    ...     def get_attr(self):
+    ...         unfoldself()
+    ...         return attr
+    >>> a=A()
+    >>> a.get_attr()
+    'attr'
+    
+    ps. if vars name in locals(), the vars won't be cover
+    '''
+    local = sys._getframe(1).f_locals
+    if self is None:
+        self = local['self']
+    for k, v in self.__dict__.items():
+        if k not in local:
+            local[k] = v
+
+class withfun():
+    '''
+    Convenient way to use `with statement` without build a Class
+    enterFun and exitFun are no parameter function
+    
+    Parameters
+    ----------
+    enterFun : function, default None
+        No parameter function
+    exitFun : function, default None
+        No parameter function or parameter are (exc_type, exc_value, exc_traceback)
+    exception : bool, default False
+        Whether send (exc_type, exc_value, exc_traceback) to exitFun
+    '''
+    def __init__(self, enterFun=None, exitFun=None, exception=False):
+        self.enterFun = enterFun
+        self.exitFun = exitFun
+        self.exception = exception
+    def __enter__(self):
+        if self.enterFun:
+            return self.enterFun()
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if self.exitFun:
+            if self.exception:
+                self.exitFun(exc_type, exc_value, exc_traceback)
+            else:
+                self.exitFun()
+
+class withattr(withfun):
+    '''
+    set attr or item in `with statement`, after __exit__ the obj or dict will recovery like befor 
+    
+    Parameters
+    ----------
+    obj : obj or dict
+        the thing that will change attr or item in with statement
+    attrs : dict
+        the attrs or items that will change during with statement
+    
+    Usage
+    ----------
+    
+    >>> with withattr(dict(), {'attr':'value'}) as d:
+    ...     print(d['attr'])
+    value
+    >>> 'attr' in d
+    False
+    
+    ps. `withattr` will detecat whther the obj is dict, then choose setattr or setitem.
+    '''
+    def __init__(self, obj, attrs):
+        self.obj = obj
+        self.attrs = attrs
+        d = obj 
+        
+        sett = (lambda d, k, v: d.__setitem__(k, v)) if isinstance(obj, dict) else setattr
+        get = (lambda d, k: d[k]) if isinstance(obj, dict) else getattr
+        pop = (lambda d, k: d.pop(k)) if isinstance(obj, dict) else delattr
+        has = (lambda d, k: k in d) if isinstance(obj, dict) else hasattr
+        def enterFun():
+            self.old = {}
+            for k,v in attrs.items():
+                if has(d, k) :
+                    self.old[k] = get(d, k)
+                sett(d, k, v)
+            return d
+        def exitFun():
+            for k in attrs.keys():
+                pop(d, k)
+            if isinstance(d, dict):
+                d.update(self.old)
+            else:
+                for k, v in self.old.items():
+                    sett(d, k, v)
+        withfun.__init__(self,enterFun, exitFun)
+    
+def isinstancestr(obj, typeStrList):
+    '''
+    same as isinstance but only use type name strs to avoid `import torch.tensor` .etc
+    
+    Parameters
+    ----------
+    obj : object
+        anything
+    typeStrList : str or list of strs
+        like tuple of types for isinstance
+    
+    Return
+    ----------
+    if True return the type name str
+    '''
+    if isinstance(typeStrList, str):
+        typeStrList = [typeStrList]
+    types = getfathers(obj)
+    typestrs = list(map(typeNameOf, types))
+    for t in typeStrList:
+        if t in typestrs:
+            typestrs.index(t)
+            return t
+    return False
+
 if __name__ == "__main__":
 
     pass

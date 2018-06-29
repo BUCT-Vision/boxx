@@ -3,13 +3,12 @@
 from __future__ import unicode_literals
 
 import os
+from ..ylcompat import interactivePlot
 from ..tool.toolLog import LogLoopTime,log
 from ..tool import pathjoin, getFunName
 from ..ylnp import savenp, loadnp
-
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def accEvalu(re, gt):
@@ -125,7 +124,7 @@ e.distr()
         '''
 Parameters
 ----------
-evaluFun : funcation
+evaluFun : function
     用于评估resoult的函数，此函数须接受两个参数 (re,gt),并返回一个dict
     dict 包含每一个评估项的值
     例如 evaluFun(re,gt) => return {'key1':value1,'key2':value2}
@@ -143,9 +142,9 @@ sortkey : str, default None
 loadcsv : bool or str, default False
     载入已保存的csv 默认不载入，为True时候则载入，
     为str时候则载入str对应的path的csv
-saveResoult : bool or funcation, default False
+saveResoult : bool or function, default False
     是否保存resoult 默认为False ,True  则保存 re
-    若为funcation 则保存 saveResoult(re) 为 .npz格式
+    若为function 则保存 saveResoult(re) 为 .npz格式
 loged : bool, default True
     是否每次评估都打印出结果 默认为打印
 savepath : str, default './val/'
@@ -299,6 +298,7 @@ e = Evalu(accEvalu,
         '''
         df = self._sorted(key)
         return df.head(n)
+    @interactivePlot
     def distr(self, key=None):
         '''分析key 的分布，describe + 分布图
         
@@ -307,6 +307,7 @@ e = Evalu(accEvalu,
         key : str or int, default self.sortkey
             当为int 时 key=df.columns[int]
         '''
+        import matplotlib.pyplot as plt
         if isinstance(key,int) and key not in self.columns:
             key = self.columns[key]
         key = self.sortkey if key is None else key 
@@ -346,7 +347,7 @@ e = Evalu(accEvalu,
         s = '''Evalu name       : %s
 cache resoult dir: %s
 sort key         : %s
-evalu funcation  : %s
+evalu function  : %s
 logFormat        : %s
         ''' %(self.evaluName,self.evaluDir,self.sortkey,funName,self.logFormat)
         

@@ -3,7 +3,7 @@
 from __future__ import unicode_literals, print_function
 import time
 
-from ..ylsys import cpun
+from ..ylsys import cpun, winYl
 from .toolStructObj import typestr
 
 from functools import reduce
@@ -36,7 +36,7 @@ def pipe(*funList):
     
     Parameters
     ----------
-    funList : Funcation or list of Funcation
+    funList : Function or list of Function
         函数list
     '''
     if len(funList) == 1 and  '__iter__' in dir(funList[0]):
@@ -88,32 +88,29 @@ def __multiprocessLogFun__(args):
     if logf:
         logf([fun, args, ind, lenn, logf])
     else:
-        print('%s/%s(%s) spend %s args[0]: %s'%(ind,lenn,isinstance(lenn, int) and percentStr(ind*1./lenn),t.s,shortStr(args[0])), end='\n')
+        print('%s/%s(%s) time: %s, args[0]: %s'%(ind,lenn,isinstance(lenn, int) and percentStr(ind*1./lenn),t.s,shortStr(args[0])), end='\n')
     return re
 
 def mapmp(fun, *iterables, **kv):
     '''
-    Map with Multi Processing:多进程版本的map函数
+    Map with Multi Processing
     mapmp(fun, sequence[, sequence, ...], pool=None, thread=False)->list
+    
     !Important, multi processing must do in `__name__ == '__main__'`'s block 
     see more at https://docs.python.org/3/library/multiprocessing.html
     
     >>> mapmp(np.add, range(3), range(3), pool=3)
     [0, 2, 4]
     
-    Notice
-    ----------
-    * 多进程中 异常无法精确定位
-    * numpy操作 由于指令集优化 及numpy版本原因 可能多进程可能会更慢
-    * 多进程中 list, dict等元素会被直接复制，无法改变内部元素
     
     Parameters
     ----------
     fun : function
-        *mulit processing* only support`def`定义的函数 can't be lambda 和 内部函数 
-        否则 PicklingError: Can't pickle 
+        *mulit processing* only support`def` in globls() function can't be lambda and inner function 
+        which will raise PicklingError: Can't pickle 
     *iterables : list 
-        用于fun的参数list, fun需要N个参数则有N个列表
+        Make an iterator that computes the function using arguments from each of the iterables. 
+        Stops when the shortest iterable is exhausted.
     pool : int, default None
         the number of Process or Threading
         the default is the number of CPUs in the system
@@ -122,12 +119,23 @@ def mapmp(fun, *iterables, **kv):
         short of `print frequent`, auto print program progress in `mapmt` and `mapmp`   
         if `printfreq < 1` then `printfreq = len(iterables[0])*printfreq`
         打印进度的频次 默认不打印
-    logf : funcation, default None
-        Hook Funcation For log , every printfreq
+    logf : function, default None
+        Hook Function For log , every printfreq
         do logf([fun, args, ind, lenn, logf])
     thread : bool, default False
         是否以*多线程*形式替换多进程
+
+    Notice
+    ----------
+    *  mapmp(fun, *iterables,pool=None, **kv) will raise Error in Python 2.7.13
+    * 多进程中 异常无法精确定位
+    * numpy操作 由于指令集优化 及numpy版本原因 可能多进程可能会更慢
+    * 多进程中 list, dict等元素会被直接复制，无法改变内部元素
     '''    
+    if winYl and not kv.get('thread'):
+        from boxx import warn1time
+        warn1time("""detection your Platform is Windows,   multiprocessing maybe slower cause os.fork is disable.
+Even multiprocessing can't work on Windows sometimes""")
     Pool = PoolMp
     if 'thread' in kv and kv['thread']:
         Pool = PoolThread
@@ -233,7 +241,7 @@ def retry(fun, times=None, exception=Exception, timeGap=0, log=True):
     
     Parameters
     ----------
-    fun : funcation
+    fun : function
         没有参数的过程函数
     times : int, default None
         try 的次数 默认为无限次

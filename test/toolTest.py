@@ -24,6 +24,21 @@ testFun = None
 tests = [testFun]
 df=pd.DataFrame([{'a':5,'b':3},{1:1}]*20)
     
+
+#tests = gg    
+if ifTest(gg):
+    def funForWgg():
+        with gg:
+            ia = 517
+            ib = 222
+    funForWgg()
+    
+#tests = withattr    
+if ifTest(withattr):
+    with withattr(dict(), {'attr':1}) as d:
+        assert (d['attr'] == 1)
+    assert 'attr' not in d
+
 #tests = getArgvDic    
 if ifTest(getArgvDic):    
     argv = ['toolTest.py', 

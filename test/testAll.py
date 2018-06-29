@@ -9,6 +9,7 @@ from __future__ import unicode_literals, print_function
 
 #what-
 from boxx import *
+import boxx
 test = True
 test = False
 if test:
@@ -18,18 +19,10 @@ if test:
     
     from ylmlTest import *
 
-from collections import defaultdict
-
-def f(a=10):
-    pass
-    return a
-
-f()
-
-ylimgTool
-pattern = '[id(self)]'
-findinRoot(up=pattern,root='..')
-#replaceAllInRoot(pattern,'printfreq',root='..')
+pattern = 'ModuleNotFoundError'
+findinRoot(pattern,root='..')
+#findinRoot(up=pattern,root='..')
+#replaceAllInRoot(pattern,'Function',root='..')
 
 
 if __name__ == '__main__0':

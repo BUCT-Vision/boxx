@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-from .ylimgTool import sk, sio, np, plt, plot, sda
+"""
+tools for Image Processing and Visualization
+
+@author: yanglei
+"""
+from .ylimgTool import sk, np, plot, sda
 from .ylimgTool import (show, showb, shows, loga, tree, treem, treea, dira, what, wtf,
                         tprgb, torgb, mapp, normalizing, norma, imsave, imread, npa, 
                        getShapes, greyToRgb, resize, histEqualize, StructLogFuns)

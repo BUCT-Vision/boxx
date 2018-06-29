@@ -2,8 +2,8 @@
 from __future__ import unicode_literals
 
 import sys, os, time
-from ..ylsys import py2, tmpYl
-from ..ylcompat import isstr
+from ..ylsys import py2, tmpYl, sysi
+from ..ylcompat import isstr, beforImportPlt, ModuleNotFoundError
 
 
 def importAllFunCode(mod=None):
@@ -55,13 +55,11 @@ def tryImport(moduleName):
     '''
     try `import @moduleName`. if @moduleName is not installed, return a FakeModule to placeholder the module name
     '''
-    
-    notFoundError = ModuleNotFoundError if not py2 else ImportError
     module = None
     try:
         exec('import %s as module' % moduleName)
         return module
-    except (notFoundError, ImportError):
+    except (ModuleNotFoundError, ImportError):
         return  '''"%s" is not install in your Python Enveroment! 
 This is a fake one. Please install "%s" and retry''' % (moduleName, moduleName)
         return FakeModule(moduleName)
@@ -106,24 +104,58 @@ def removeimp(modulesName='boxx'):
     [sys.modules.pop(k) for k,v in list(sys.modules.items()) if k.startswith(modulesName + '.') or k == modulesName]
 
 def crun(pycode, snakeviz=True):
-    '''测试代码pycode的性能'''
+    '''
+    use snakeviz and cProfile to analyse the code performance
+    a visualization flame graph web page will be opened in your web browser
+    
+    Parameters
+    ----------
+    pycode : str
+        Python code
+    snakeviz : bool, default True
+        use snakeviz to get flame graph in web page
+        otherwise, print cProfile result sorted by time
+    '''
     from cProfile import run
+
     if not snakeviz:
         return run(pycode,sort='time')
+    import webbrowser
+    if not webbrowser.open(''):
+        from boxx import warn
+        msg = '''**Can't detect browser** in operating environment.
+so, we use cProfile.run(pycode,sort='time'),
+instead of using snakeviz to visualization code perfomance in web page'''
+        warn(msg)
+        run(pycode,sort='time')
+        print('\n\n'+msg)
+        return 
     run(pycode, os.path.join(tmpYl, "snakeviz.result"))
-    from . import softInPath
-    assert softInPath('snakeviz'),'run `pip install snakeviz`'
-    os.system('snakeviz %s &'% os.path.join(tmpYl,'snakeviz.result'))
+    if not sysi.win:
+        from . import softInPath
+        assert softInPath('snakeviz'),'run `pip install snakeviz`'
+        os.system('snakeviz %s &'% os.path.join(tmpYl,'snakeviz.result'))
+    elif sysi.win:
+        os.system('snakeviz.exe %s &'% os.path.join(tmpYl,'snakeviz.result'))
+        
     
+def performance(pyfileOrCode, snakeviz=True):
+    '''
+    use snakeviz and cProfile to analyse the python file or python code performance
+    a visualization flame graph web page will be opened in your web browser
     
-def frun(pyFileName=None):
-    '''在spyder中 测试pyFileName的性能'''
-    if pyFileName:
-        if '.py' not in pyFileName:
-            pyFileName += '.py'
-        crun("runfile('%s',wdir='.')"%pyFileName)
+    Parameters
+    ----------
+    pyfileOrCode : str
+        Python file's path or python code
+    snakeviz : bool, default True
+        use snakeviz to get flame graph in web page
+        otherwise, print cProfile result sorted by time
+    '''
+    if pyfileOrCode.endswith('.py'):
+        crun("from boxx import runpyfile;runpyfile('%s')"%pyfileOrCode)
     else:
-        crun("runfile(__file__,wdir='.')")
+        crun(pyfileOrCode)
 
 class timeit():
     '''
@@ -137,7 +169,7 @@ class timeit():
         
     P.S `with timeit(0)` will convenient stop print 
     '''
-    def __init__(self,name=''):
+    def __init__(self,name='timeit'):
         self.last = self.begin = time.time()
         self.log = isstr(name) or bool(name)
         self.key = name
@@ -167,34 +199,58 @@ class timeit():
         if self.log:
             print(self)
 
+
 def heatmap(pathOrCode):
-    '''显示python代码的时间热力图
-    ps.会让代码里面的中文全部失效
+    '''show the heatmap of code or python file
+    if raise UnicodeDecodeError in Python 2 which may cause by Chinese, Japaneses
+    then will replace all symbol not belong ascii to "?$"
     
     Parameters
     ----------
-    path : str of code or path of .py
+    pathOrCode : str
+        .py file path or Python code
+    
+    Chinese:
+    会让代码里面的中文全部失效
+    
+    Parameters
+    ----------
+    pathOrCode : str of code or path of .py
         .py文件路径或着python代码
     '''
+    beforImportPlt()
     from pyheat import PyHeat
-    path = os.path.join(tmpYl, 'pyheat-tmp.py')
-    code = pathOrCode
+    import matplotlib.pyplot as plt
+    tmppath = 'code-tmp-pyheat-boxx.py'
+    
+    ispath = pathOrCode.endswith('.py')
+    path = pathOrCode if ispath else tmppath
     try :
-        if os.path.isfile(pathOrCode):
-            path = pathOrCode+'_HEAT_MAP_TMP.py'
-            with open(pathOrCode) as f:
-                code = f.read()
-        if py2:
-            code = code.decode('ascii','replace').replace('\ufffd','$?')
-        with open(path,'w') as f:
-            f.write(code)
+        if not ispath:
+            with open(tmppath,'w') as f:
+                f.write(pathOrCode)
         ph = PyHeat(path)
         ph.create_heatmap()
         ph.show_heatmap()
-    finally:
-        if os.path.isfile(path):
-            os.remove(path)
+    except UnicodeDecodeError:
+        plt.show()
+        msg = '''UnicodeDecodeError! try to replace not ascii symbol to '$?' and retry'''
+        from boxx import warn
+        warn(msg)
         
+        with open(path) as f:
+            code = f.read()
+        code = code.decode('ascii','replace').replace('\ufffd','$?')
+        with open(tmppath,'w') as f:
+            f.write(code.encode('utf-8'))
+        
+        ph = PyHeat(tmppath)
+        ph.create_heatmap()
+        ph.show_heatmap()
+    finally:
+        if os.path.isfile(tmppath):
+            os.remove(tmppath)
+
 def strIsInt(s):
     '''判断字符串是不是整数型'''
     s = s.replace(' ','')
@@ -310,23 +366,43 @@ def getFatherFrames(frame=0, endByMain=True):
         frame = frame.f_back
     return fs
 
-rootFrame = []
-def getRootFrame(frame=0, endByMain=True):
+
+
+mainFrame = []
+def getMainFrame(frame=0):
     '''
-    返还 frame 的root frame 即 interactive 所在的 frame
+    return a main frame from father frames that first frame.f_locals['__name__'] == '__main__' 
     
     Parameters
     ----------
     frame : frame or int, default 0
         if int:相对于调用此函数frame的 int 深度的对应frame
-    endByMain : bool, default True
-        为 True 则在第一个 frame.f_locals['__name__'] == '__main__' 处停止搜寻
-        目的是去除 IPython 自身多余的 Call Stack
+    '''
+    if len(mainFrame):
+        return mainFrame[0]
+    fs = getFatherFrames(frame=frame+1, endByMain=True)
+    main = fs[-1]
+    mainFrame.append(main)
+    return main
+getMainFrame()
+
+
+rootFrame = []
+def getRootFrame():
+    '''
+    return interactive frame
     '''
     if len(rootFrame):
         return rootFrame[0]
+    frame=0
+    endByMain=False
     fs = getFatherFrames(frame=frame+1, endByMain=endByMain)
-    root = fs[-1]
+    root = getMainFrame()
+    
+    for f in fs:
+        if f.f_code.co_filename.startswith('<ipython-input-'):
+            root = f
+            break
     rootFrame.append(root)
     return root
 getRootFrame()

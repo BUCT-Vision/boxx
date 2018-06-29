@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import os, sys
 import warnings
+from functools import wraps
 
 class BoxxException(Exception):
     '''
@@ -11,7 +12,7 @@ class BoxxException(Exception):
     '''
     pass
 
-class BoxxWarning(BoxxException):
+class BoxxWarning(Warning):
     '''
     root warninng for boxx
     '''
@@ -68,6 +69,18 @@ def warn(msg, warnType=BoxxWarning, filename=None, line=None, module='boxx', blu
         filename = c.co_filename if filename is None else filename
         line = c.co_firstlineno if line is None else line 
     warnings.warn_explicit(msg, warnType, filename, line, module)
+
+warn1timeCache = {}
+@wraps(warn)
+def warn1time(msg, *l, **kv):
+    '''
+    log a warning of type warnType warn will auto fill filename and line 
+    
+    warn only one time
+    '''
+    if not warn1timeCache.get(msg):
+        warn(msg, *l, **kv)
+        warn1timeCache[msg] = True
     
 getsize = os.path.getsize
 
@@ -100,18 +113,18 @@ def listdir(path=None):
     path = path or '.'
     return os.listdir(path)
 
-def openread(path):
+def openread(path, encoding='utf-8'):
     '''
     返回path文件的文本内容
     '''
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding=encoding) as f:
         strr = f.read()
     return strr
-def openwrite(strr, path, mode='w'):
+def openwrite(strr, path, mode='w', encoding='utf-8'):
     '''
     将strr写入path
     '''
-    with open(path, mode) as f:
+    with open(path, mode, encoding=encoding) as f:
         f.write(strr)
     return path
 def replaceTabInPy(dirr='.'):
@@ -152,6 +165,16 @@ def loadData(name='pickle_of_boxx', log=False):  #载入数据
         print('文件:“'+name+'”读取成功！')
     return data
 
+def browserOpen(url):
+    '''
+    open url with browser
+    if can't open browser raise warn
+    '''
+    import webbrowser
+    if not webbrowser.open_new_tab(url):
+        from boxx import warn
+        warn('''can't open url with web browser, plaese open url:"%s" in your browser'''%url)
+        
 if __name__ == "__main__":
 
     pass

@@ -34,7 +34,7 @@ class timeGap:
     ----------
     gap : float
         隔多少秒返回一个 True
-    fun : funcation, default None
+    fun : function, default None
         每一次要执行fun()
     quickBegin : bool, default True
         First time call will return True
@@ -161,6 +161,8 @@ def shortDiscrib(x):
     '''
     short Discrib of anything for logc number is better 
     '''
+    if isinstance(x, int):
+        return str(x)
     typee = typestr(x)
     from ..ylimg import StructLogFuns
     fund = StructLogFuns
@@ -184,7 +186,7 @@ def shortStr(x, maxlen=60):
     '''
     genrate one line discrib str shorter than maxlen.
     if len(s)> maxlen then slice additional str and append '...' 
-    BTW. funcation will replace '\n' to '↳'
+    BTW. function will replace '\n' to '↳'
     
     if bool(maxlen) is False, not be short
     '''
@@ -221,18 +223,32 @@ def discrib(x, maxline=20):
     return s
 
 
-def logc(code, run=None):
+def logc(code, exe=None):
     '''
+    short of log code
+    pretty print expression by show every var's value in expression
+    
+    Parameters
+    ----------
+    code : str
+        the expression code that want to print
+    exe : bool, default None
+        wether exec(code) befor print
+        when exe is None:
+            try not exec(code)
+            but if some var in expression can't find in locals() and globls()
+                then exec(code)
+    
     TODO:
         1. use re to replace vars name avoid the same names
         2. use Abstract Syntax Tree and re 
-           to distinguish .attr, funcation call []
+           to distinguish .attr, function call []
     '''
     frame = sys._getframe(2)
     local = frame.f_locals
     glob = frame.f_globals
     
-    if run:
+    if exe:
         exec(code, local, glob)
     
     varss = re.findall('[a-zA-Z_][a-zA-Z0-9_]*',code)
@@ -242,7 +258,7 @@ def logc(code, run=None):
             dic[name] = local[name]
         elif name in glob:
             dic[name] = glob[name]
-        elif run is None:
+        elif exe is None:
             exec(code, local, glob)
             if name in local:
                 dic[name] = local[name]
@@ -339,7 +355,7 @@ printt = log
 def printToStr(value='', *l, **kv):
 #def printToStr(value='', *l, sep=' ', end='\n', file=None, flush=False): # for py version < 2.7.16
     '''
-    same usage to print funcation, but replace stdout to return str
+    same usage to print function, but replace stdout to return str
     '''
     sep=' '
     end='\n'
@@ -719,6 +735,122 @@ class SuperG(Gs):
 
 sg = SuperG()
 
+
+class withOperation():
+    '''
+    `w{operation}` is mulitple variables version of "{operation}/x", and work in "with statement".
+    {usage}
+    `w{operation}` only act on assignment variables that under `with w{operation}:` statement.
+    
+    Usage
+    --------
+        >>> with w{operation}:
+        >>>     pi = 3.14
+        >>>     e = 2.71
+    
+    Note
+    --------
+        If var's name in locals() and `id(var)` not change ,var may not be detected 
+        Especially following cases：
+            1. var is int and < 256
+            2. `id(var)` not change
+
+    '''
+    def __init__(self, operation='p', printt=False, transport=False, deep=0):
+        self.locs = defaultdict(lambda:[])
+        self.operation = operation
+        self.printt = printt
+        self.transport = transport
+        self.deep = deep
+    def __enter__(self):
+        f = sys._getframe(self.deep+1)
+        ind = id(f)
+        self.locs[ind].append((f.f_locals).copy())
+        return self
+    def __exit__(self, typee, value, traceback):
+        f = sys._getframe(self.deep+1)
+        ind = id(f)
+        locsb = self.locs[ind].pop()
+        locs = f.f_locals
+        kvs = []
+        newVars = []
+        for k in locs:
+            if k in locsb:
+                if not (locsb[k] is locs[k]):
+                    kvs.append((k, locs[k]))
+            else:
+                kvs.append((k, locs[k]))
+                newVars.append(k)
+        if self.transport:
+            root = getRootFrame()
+            root.f_locals.update(kvs)
+        
+        printf = lambda *l, **kv: 0
+        if self.printt:
+            printf = log
+        printf("")
+        printf(colorFormat.b%'withprint from %s'%prettyFrameLocation(f))
+
+        if len(kvs):
+            tag = ''
+            if locs.get('__name__') == '__main__':
+                printf(colorFormat.b% 'New Vars: ', end='')
+                if len(newVars):
+                    printf((', '.join([colorFormat.p%k for k in newVars])))
+                else:
+                    printf((colorFormat.b% 'None'))
+                    
+                tag = ("\nP.S. code run in __main__, some vars may not detected if id(var) not change.")
+            printf((colorFormat.b% "All Vars's Values :"))#(P.S.some base object may not detected):"))
+            if self.printt:
+                from boxx import tree
+                tree(dict(kvs))
+                tag and printf(tag)
+            
+        else:
+            print((colorFormat.r% '\n\nNot detected any Vars:'+
+                   '\n    id(var) may not change in interactive mod if var is int and < 256 \n'+
+                   '    `help(withprint)` for more infomation\n'+
+                   '     P.S assignment self is not work for with statement.\n'+
+                   '     Instead, `new_var = old_var` is OK!'))
+    def __str__(self):
+        s = self.__doc__
+        if py2:
+            return str(s.encode('utf-8'))
+        return s
+    __repr__ = __str__
+
+class withPrint(withOperation):
+    operation = 'p'
+    usage = '''
+    pretty print variables with their variable name.
+    '''
+    __doc__ = withOperation.__doc__.format(operation=operation, usage=usage)
+    def __init__(self):
+        withOperation.__init__(self, self.operation, True, False)
+    
+class withTransport(withOperation):
+    operation = 'g'
+    usage = '''
+    `wg` will transport variable to Python interactive console.
+    '''
+    __doc__ = withOperation.__doc__.format(operation=operation, usage=usage)
+    def __init__(self):
+        withOperation.__init__(self, self.operation, False, True)
+
+class withPrintAndTransport(withOperation):
+    operation = 'gg'
+    usage = '''
+    `wgg` will transport variable to Python interactive console and pretty print they.
+    '''
+    __doc__ = withOperation.__doc__.format(operation=operation, usage=usage)
+    def __init__(self):
+        withOperation.__init__(self, self.operation, True, True)
+
+wp = withPrint()
+wg = withTransport()
+wgg = withPrintAndTransport()
+
 class TransportToRootFrame():
     def __init__(self, name=None, log=False):
         self.name = name
@@ -740,15 +872,25 @@ global_g_paras = {}
 class GlobalGCore(object):
     def __init__(self, log=False):
         object.__init__(self)
-        global_g_paras[id(self)] = log
+        d = global_g_paras[id(self)] = dicto()
+        d.log = log
+        
+        d.wo = withOperation(['g', 'gg'][log], printt=log, transport=True, deep=1)
     def __call__(self, deep=0):
-        log = global_g_paras[id(self)]
+        d = global_g_paras[id(self)]
+        log = d.log
         out(depth=deep+1, printt=log)
     def __del__(self):
         idd = id(self)
         if global_g_paras and idd in global_g_paras:
             del global_g_paras[idd]
-        
+
+    def __enter__(self):
+        d = global_g_paras[id(self)]
+        return withOperation.__enter__(d.wo)
+    def __exit__(self, typee, value, traceback):
+        d = global_g_paras[id(self)]
+        withOperation.__exit__(d.wo, typee, value, traceback)
 class GlobalG(GlobalGCore):
     '''
     TODO:
@@ -766,10 +908,10 @@ class GlobalG(GlobalGCore):
 #        print(id(self),name)
         if name.startswith('__') and name.endswith('__') or name in dir(GlobalGCore): 
             return GlobalGCore.__getattribute__(self, name, *l)
-        log = global_g_paras[id(self)]
+        log = global_g_paras[id(self)].log
         return TransportToRootFrame(name,log)
     def __setattr__(self, name, v):
-        log = global_g_paras[id(self)]
+        log = global_g_paras[id(self)].log
         transport = TransportToRootFrame(name,log)
         transport(v)
 g = GlobalG()
@@ -845,11 +987,11 @@ def prettyFrameStack(frame=0, endByMain=True, maxprint=None):
         frame = sys._getframe(1 + frame)
     fs = getFatherFrames(frame, endByMain=endByMain)
     ns = [getNameFromCodeObj(f.f_code) for f in fs]
-    if 'execfile' in ns:
-        ns = ns[:ns.index('execfile')]
-    if '_call_with_frames_removed' in ns:
-        ns = ns[:ns.index('_call_with_frames_removed')]
-        
+    if endByMain:
+        if 'execfile' in ns:
+            ns = ns[:ns.index('execfile')]
+        if '_call_with_frames_removed' in ns:
+            ns = ns[:ns.index('_call_with_frames_removed')]
     s = ' <-'.join(ns)
     s = shortStr(s, maxlen=maxprint)
     return s
@@ -906,8 +1048,6 @@ def generaPAndLc():
             p.clear()
             glob = frame.f_globals
             local = frame.f_locals
-            p.update(glob)
-            p.update(local)
                 
             self.c = self.code = code
             self.f = self.frame = frame
@@ -922,9 +1062,11 @@ def generaPAndLc():
                 print((colorFormat.b%'Stacks: '+colorFormat.r%s))
                 print((colorFormat.b%'Locals: '))
                 from boxx import tree
-                tree(local, deep=1, maxprint=40)
+                tree(local, maxprint=100)
                 
             if saveOut[id(self)]:
+                p.update(glob)
+                p.update(local)
                 root = getRootFrame()
                 addDic = dict(
 #                        code=code,
@@ -943,9 +1085,9 @@ def generaPAndLc():
                     print("")
                     addVarStr = ', '.join([colorFormat.p%k for k in addDic if k not in same])
                     if addVarStr:
-                        print(colorFormat.b% '\nVars add to Root Frame by out: '+'\n└── '+ addVarStr)
+                        print(colorFormat.b% '\nVars add to Console Frame: '+'\n└── '+ addVarStr)
                     if len(same):
-                        print(colorFormat.r% '\nVars that replaced by out in Root Frame: '+'\n└── '+', '.join([colorFormat.p%k for k in same]))
+                        print(colorFormat.r% '\nVars that replaced in Console Frame: '+'\n└── '+', '.join([colorFormat.p%k for k in same]))
                 root.f_globals.update(addDic)
                 lc.c = lc.code = code
                 lc.f = lc.frame = frame
@@ -954,8 +1096,30 @@ def generaPAndLc():
                 self.update(local)
     
     
-    
+    __P_CACHE__ = dicto()
     class Pdicto(dicto):
+        '''
+        # print(x) and return x
+        >>> p/517 
+        517
+        517
+        
+        # p() to pretty print all variables in function with thier name
+        >>> def f(arg=517):
+                l = [1, 2]
+                p()
+        
+            ├── l: list  2
+            │   ├── 0: 1
+            │   └── 1: 2
+            └── arg: 517
+        import boxx.p has same usage
+        
+        # p will pretty print mulit variables under "with statement"
+        
+        >>> with p:
+            
+        '''
         def __call__(self, depth=0, printt=True):
             if depth is False:
                 printt = depth
@@ -963,8 +1127,8 @@ def generaPAndLc():
             lc(depth+1, printt)
         def printt(self, x=None):
             pretty = False
-            root = getRootFrame()
-            root.f_globals['pp'] = x
+#            root = getRootFrame()
+#            root.f_globals['pp'] = x
             if pretty:
                 loc = prettyFrameLocation(1)
                 pblue('Print by p from %s:'%loc)
@@ -978,6 +1142,15 @@ def generaPAndLc():
         __rshift__ = printt
         __truediv__ = __div__ = printt
         __pow__ = printt
+        
+        def __enter__(self):
+            d = __P_CACHE__
+            if 'wo' not in d:
+                d.wo = withOperation('p', printt=True, transport=False, deep=1)
+            return withOperation.__enter__(d.wo)
+        def __exit__(self, typee, value, traceback):
+            d = __P_CACHE__
+            withOperation.__exit__(d.wo, typee, value, traceback)
     p = Pdicto()
     lc = LocalAndGlobal()
     out = LocalAndGlobal(out = True)
@@ -986,60 +1159,3 @@ p, lc, out = generaPAndLc()
 pp = "registered `pp` var name that will be used by `p/x`"
 #pp, lcc, outt = generaPAndLc()
 
-class withprint():
-    '''
-    使用with结构来打印变量值
-    仍旧处于实验阶段
-    In interactive mod,var may not detected in following cases：
-        1. var is int and < 256
-        2. 变量名存在过 而且`id(var)` 也没有变化
-    
-        >>> with withprint():
-        >>>     a = 3.14
-    '''
-    def __init__(self):
-        self.locs = defaultdict(lambda:[])
-    def __enter__(self):
-        f = sys._getframe(1)
-        ind = id(f)
-        self.locs[ind].append((f.f_locals).copy())
-        return self
-    def __exit__(self, typee, value, traceback):
-        f = sys._getframe(1)
-        ind = id(f)
-        locsb = self.locs[ind].pop()
-        locs = f.f_locals
-        kvs = []
-        newVars = []
-        for k in locs:
-            if k in locsb:
-                if not (locsb[k] is locs[k]):
-                    kvs.append((k, locs[k]))
-            else:
-                kvs.append((k, locs[k]))
-                newVars.append(k)
-        print("")
-        from .toolTools import increase
-        count = increase('boxxx.withprint id:%s'%id(self))
-        if count : 
-            print(colorFormat.p%(str(count+1)+'st')+colorFormat.b%' times ', end='')
-        print(colorFormat.b%'withprint from %s'%prettyFrameLocation(f))
-
-        if len(kvs):
-            print(colorFormat.b% 'New Vars: ', end='')
-            if len(newVars):
-                print((', '.join([colorFormat.p%k for k in newVars])))
-            else:
-                print((colorFormat.b% 'None'))
-            print((colorFormat.b% "All Vars's Values (ps.some base object may not detected):"))
-            from boxx import tree
-            tree(dict(kvs))
-        else:
-            print((colorFormat.r% 'No detected any Vars:'+
-                   '\n    id(var) may not change in interactive mod if var is int and < 256 \n'+
-                   '    `help(withprint)` for more infomation'))
-wp = withprint()
-
-if __name__ == "__main__":
-    colorFormat.pall()
-    pass

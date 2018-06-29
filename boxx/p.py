@@ -18,7 +18,6 @@ Instruct
     BTW, `import boxx.out`, `import boxx.p` is convenient way to use `out()` without `from boxx import out`
     
     在函数内运行`p()` or `lc()`  
-    则此函数的global和local 变量会载入全局变量 p 中
     函数的 frame等其他信息 则放入全局变量 lc
 
 '''
@@ -27,14 +26,16 @@ from .tool import p
 
 deep = 6
 if py2:
-    deep = 1  
+    deep = 1
 
 p(deep)
 
-if not py2:
+if py2:
+    import sys
+    sys.modules['boxx.p'] = p
+else:
     from .tool import removeImportSelf
     removeImportSelf('boxx.p')
-
 #from . import *
 #print(prettyFrameStack())
 #fs = getFatherFrames(endByMain=1)

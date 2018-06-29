@@ -2,30 +2,63 @@
 
 from __future__ import unicode_literals, print_function
 
-from ..tool.toolStructObj import FunAddMagicMethod, typeNameOf, typestr, dicto, generator, nextiter, getfathers
+from ..tool.toolStructObj import FunAddMagicMethod, typeNameOf, typestr, dicto
+from ..tool.toolStructObj import generator, nextiter, getfathers, isinstancestr
 from ..tool.toolLog import log, PrintStrCollect, colorFormat, clf, tounicode, LogLoopTime, prettyClassFathers
 from ..tool.toolLog import tabstr, getDoc, shortStr, discrib, strnum
-from ..tool.toolFuncation import mapmp, pipe
+from ..tool.toolFunction import mapmp, pipe
 from ..tool.toolSystem import tryImport
-from ..ylsys import tmpYl, pyi
+from ..ylsys import tmpYl, pyi, py2
 from ..ylnp import isNumpyType
+from ..ylcompat import interactivePlot, beforImportPlt
 
 import skimage as sk
-from skimage import io as sio
-from skimage import data as sda
-from skimage.io import imread
-from skimage.io import imsave
 from skimage.transform import resize 
-
+from skimage.exposure import equalize_hist
 import os
 import glob
 import numpy as np
-import matplotlib.pyplot as plt
 import types
 from functools import reduce
 from collections import defaultdict
 from operator import add
 #cv2 = tryImport('cv2')
+
+#from skimage import io as sio
+#from skimage.io import imread
+#from skimage.io import imsave
+#from skimage import data as sda
+
+def imsave(fname, arr, plugin=None, **plugin_args):
+    '''
+    same usage of skimage.io.imsave, for lazy import skimage.io and matplotlib.pyplot
+    '''
+    beforImportPlt()
+    from skimage.io import imsave
+    return imsave(fname, arr, plugin, **plugin_args)
+
+def imread(fname, as_grey=False, plugin=None, flatten=None, **plugin_args):
+    '''
+    same usage of skimage.io.imread, for lazy import skimage.io and matplotlib.pyplot
+    '''
+    beforImportPlt()
+    from skimage.io import imread
+    return imread(fname, as_grey, plugin, flatten, **plugin_args)
+
+#class FakeSkimageData(types.ModuleType): # raise SystemError: nameless module when dir(sda)
+class FakeSkimageData():
+    __all__ = ['load', 'astronaut', 'camera', 'checkerboard', 'chelsea', 'clock', 'coffee', 'coins', 'horse', 'hubble_deep_field', 'immunohistochemistry', 'logo', 'moon', 'page', 'text', 'rocket', 'stereo_motorcycle']
+    def __init__(self):
+        pass
+    def __getattr__(self, k, *l):
+        beforImportPlt()
+        from skimage import data as sda
+        return getattr(sda, k)
+    def __call__(self):
+        beforImportPlt()
+        from skimage import data as sda
+        return sda.astronaut()
+sda = FakeSkimageData()
 
 # randomm((m, n), max) => m*n matrix
 # randomm(n, max) => n*n matrix
@@ -48,7 +81,7 @@ def uint8(img):
 
 greyToRgb = lambda grey:grey.repeat(3).reshape(grey.shape+(3,)) 
 
-histEqualize = FunAddMagicMethod(sk.exposure.equalize_hist)
+histEqualize = FunAddMagicMethod(equalize_hist)
 
 boolToIndex = lambda boolMa1d:np.arange(len(boolMa1d))[npa(boolMa1d).squeeze()>0]
 boolToIndex = FunAddMagicMethod(boolToIndex)
@@ -68,9 +101,13 @@ tprgb = FunAddMagicMethod(tprgb)
 
 def torgb(img):
     '''
-    将被处理过给网络用的图片 转换回 RGB 图像。
-    即自动 Normalization 到 [0,1], 并transpose 到 W*H*3
+    try to transfer a tensor to normalized RGB image
+    
+    normalizing img value to 0~1
+    and transpose (..., 3, w, h) to (..., w, h, 3)
+    
     '''
+    img = npa(img)
     if img.min() < 0:
         img = norma(img)
     return tprgb(img)
@@ -131,6 +168,7 @@ typesToNumpyFuns = {
     "torch.nn.parameter.Parameter":lambda x:__torchCudaToNumpy(x.data),
 }
 
+__strToNumpy = lambda x: imread(x) if os.path.isfile(x) else np.array(list(x))
 __generatorToNumpy = lambda x:np.array(list(x))
 tryToNumpyFunsForNpa = {
     "dict_values":__generatorToNumpy,
@@ -139,21 +177,32 @@ tryToNumpyFunsForNpa = {
     "map":__generatorToNumpy,
     "filter":__generatorToNumpy,
     "zip":__generatorToNumpy,
+    
+    "str":__strToNumpy,
+    "unicode":__strToNumpy,
     }
+tryToNumpyFunsForNpa.update(typesToNumpyFuns)
+
 def npa(array):
     '''
-    根据`./typesToNumpyFuns` 将array转换为 np.ndarray
+    try to transfer other data to np.ndarray
+    
+    support types inculde:
+        numpy, torch.tensor, mxnet.ndarray, PIL.Image
+        list, tuple, dict, range, zip, map
+        str, image_path
     
     Parameters
     ----------
-    array : list/tuple, torch.Tensor, mxnet.NDArray 
-        在 字典 typesToNumpyFuns 的中的类型
+    array : list/tuple, torch.Tensor, mxnet.NDArray ...
+        support types in boxx.ylimg.ylimgTool.typesToNumpyFuns and boxx.ylimg.ylimgTool.tryToNumpyFunsForNpa
     '''
-    typeName = typestr(array)
-    if typeName in tryToNumpyFunsForNpa:
-        ndarray = tryToNumpyFunsForNpa[typeName](array)
-    elif typeName in typesToNumpyFuns:
-        ndarray = typesToNumpyFuns[typeName](array)
+    if isinstance(array, np.ndarray):
+        return array
+    
+    typeNameForNpa = isinstancestr(array, tryToNumpyFunsForNpa)
+    if typeNameForNpa:
+        ndarray = tryToNumpyFunsForNpa[typeNameForNpa](array)
     else:
         ndarray = np.array(array)
     return ndarray
@@ -208,14 +257,18 @@ def prettyArray(array):
         elif len(x) == 1:
             discrib += (clf.p%'\nAll value is %s' % x[0])
         else:
-            discrib += ('\nOlny %s unique values are %s'%(len(x), ', '.join([clf.p%v for v in x])))
+            discrib += ('\nOnly %s unique values are %s'%(len(x), ', '.join([clf.p%v for v in x])))
     discrib += discribNan
     return discrib
 
+#interactivePlot = lambda x:x
+@interactivePlot
 def plot(array, sort=False, maxline=10):
     '''
     plot line or top @maxline lines
-    '''
+    '''    
+    import matplotlib.pyplot as plt
+    plt.figure()
     if callable(array) and '__iter__' not in dir(array):
         x = np.linspace(np.e*-1.5,np.e*1.5,100)
         array = array(x)
@@ -234,12 +287,17 @@ def plot(array, sort=False, maxline=10):
         plt.plot(arr)
     plt.show()        
 plot = FunAddMagicMethod(plot)
- 
+
+@interactivePlot
 def loga(array):
     '''
     Analysis any array like thing .
     the shape, max, min, distribute of the array
+    
+    support numpy, torch.tensor, mxnet.ndarray, PIL.Image .etc
     '''
+    import matplotlib.pyplot as plt
+    plt.figure()
     discrib = prettyArray(array)
     print(discrib.replace('\n','\n\n'))
     
@@ -279,11 +337,11 @@ def ndarrayToImgLists(arr):
     '''
     arr = np.squeeze(arr)
     ndim = arr.ndim
-    if not ndim:
+    if ndim <= 1:
         return []
     if arr.ndim==2 or (arr.ndim ==3 and arr.shape[-1] in [3,4]):
          return [arr]
-    if arr.shape[-1] == 2: # 二分类情况下自动转换
+    if arr.shape[-1] == 2 and arr.ndim >= 3: # 二分类情况下自动转换
         arr = arr.transpose(list(range(ndim))[:-3]+[ndim-1,ndim-3,ndim-2])
     imgdim = 3 if arr.shape[-1] in [3,4] else 2
     ls = list(arr)
@@ -299,9 +357,9 @@ def listToImgLists(l, res=None,doNumpy=ndarrayToImgLists):
     if res is None:
         res = []
     for x in l:
-        typeName = typestr(x)
+        typeName = isinstancestr(x, typesToNumpyFuns)
         fathersStr = str(getfathers(x))
-        if typeName in typesToNumpyFuns:
+        if typeName:
             ndarray = typesToNumpyFuns[typeName](x)
             res.extend(doNumpy(ndarray))
         elif isinstance(x,(list,tuple)):
@@ -311,11 +369,13 @@ def listToImgLists(l, res=None,doNumpy=ndarrayToImgLists):
         elif isinstance(x,np.ndarray):
             res.extend(doNumpy(x))
         elif ('torch.utils.data') in fathersStr or ('torchvision.datasets') in fathersStr:
-            seq = unfoldTorchData(x)
+            seq = unfoldTorchData(x, fathersStr)
             if seq is not False:
                 listToImgLists(seq,res=res,doNumpy=doNumpy)
     return res
+@interactivePlot
 def showImgLists(imgs,**kv):
+    import matplotlib.pyplot as plt
     n = len(imgs)
     if n == 4:
         showImgLists(imgs[:2],**kv)
@@ -334,11 +394,19 @@ def showImgLists(imgs,**kv):
     plt.show()
 def show(*imgsAndFuns,**kv):
     '''
-    找出一个复杂结构中的所有numpy 转换为对应的图片并plt.show()出来
+    show could find every image in complex struct and show they
+    could sample images from torch.DataLoader and DataSet
+    
+    if imgsAndFuns inculde function. those functions will process all numpys befor imshow
     
     Parameters
     ----------
-    imgsAndFuns : list/tuple/dict 
+    imgsAndFuns : numpy/list/tuple/dict/torch.tensor/PIL.Image/function
+        if imgsAndFuns inculde function . 
+        those functions will process all numpys befor imshow
+    kv : args
+        args for plt.imshow
+    找出一个复杂结构中的所有numpy 转换为对应的图片并plt.show()出来
     '''
     if 'cmap' not in kv:
         kv['cmap'] = 'gray'
@@ -346,7 +414,7 @@ def show(*imgsAndFuns,**kv):
     doNumpy = pipe(funs+[ndarrayToImgLists])
     imgls = listToImgLists(imgsAndFuns,doNumpy=doNumpy)
     imgls = [img for img in imgls if img.ndim >= 2 and min(img.shape) > 2]
-    assert len(imgls)!=0,"funcation `show`'s args `imgs`  has no any np.ndarray that ndim >= 2! "
+    assert len(imgls)!=0,"function `show`'s args `imgs`  has no any np.ndarray that ndim >= 2! "
     showImgLists(imgls,**kv)
 show = FunAddMagicMethod(show)
 
@@ -402,11 +470,17 @@ shows = FunAddMagicMethod(shows)
 
 
     
-__torchShape = lambda x:colorFormat.r%'%s %s'%(str(x.shape or ('%s of'%x)) ,x.type())
+def __torchShape(x):
+    if x.shape:
+        s = '%s of %s'%(tuple(x.shape), x.type())
+    else:
+        s = '%s of %s'%(strnum(float(x)), x.type())
+    return colorFormat.r%s
 StructLogFuns = {
     'list':lambda x:colorFormat.b%('list  %d'%len(x)),
     'tuple':lambda x:colorFormat.b%('tuple %d'%len(x)),
     'dict':lambda x:colorFormat.b%('dict  %s'%len(x)),
+    'mappingproxy':lambda x:colorFormat.b%('mappingproxy  %s'%len(x)),
     'set':lambda x:(colorFormat.r%'set %s = '%len(x) + colorFormat.b%str(x)),
     'collections.defaultdict':lambda x:colorFormat.b%('defaultDict  %s'%len(x)),
     'dicto':lambda x:colorFormat.b%('dicto  %s'%len(x)),
@@ -463,34 +537,37 @@ def discribOfInstance(instance,leafColor=None,MAX_LEN=45):
     return (leafColor or '%s')%s
 
 
-def unfoldTorchData(seq):
+def unfoldTorchData(seq, fathersStr=''):
     '''
     unfold torch.Dataset and Dataloader use next(iter()) for tree  
     '''
     import torch
-    if isinstance(seq, torch.utils.data.DataLoader):
+    if isinstance(seq, torch.utils.data.DataLoader) or 'DataLoader' in fathersStr:
         seq = [('DataLoader.next', nextiter(seq, raiseException=False))]
-    elif isinstance(seq, torch.utils.data.Dataset):
+    elif isinstance(seq, torch.utils.data.Dataset) or 'Dataset' in fathersStr:
         seq = [(colorFormat.b%'Dataset[0/%d]'%len(seq), seq[0])]
     else:
         return False
     return seq
 
+MappingProxyType = dict if py2 else types.MappingProxyType 
+    
+iterAbleTypes = (list,tuple,dict,types.GeneratorType, MappingProxyType)
 def unfoldAble(seq):
     '''
     能展开的 object 
     '''
-    if isinstance(seq,(list,tuple,dict,types.GeneratorType)) :
+    if isinstance(seq,iterAbleTypes) :
         if isinstance(seq,(list,tuple)):
             seq = list(enumerate(seq))
-        elif isinstance(seq,(dict)):
+        elif isinstance(seq,(dict, MappingProxyType)):
             seq = list(seq.items())
         elif isinstance(seq, types.GeneratorType):
             seq = [('Generator.next', nextiter(seq, raiseException=False))]
         return seq
     fathersStr = str(getfathers(seq))
     if ('torch.utils.data') in fathersStr or ('torchvision.datasets') in fathersStr:
-        return unfoldTorchData(seq)
+        return unfoldTorchData(seq, fathersStr)
     return False
 
 class HiddenForTree():
@@ -529,8 +606,8 @@ def tree(seq,maxprint=50,deep=None,logLen=45,printf=log,leafColor='\x1b[31m%s\x1
         能显示的最深深度, 默认不限制
     logLen : int, default 45
         能显示的最长字符数
-    printf : funcation, default print funcation
-        a funcation that could replace print 
+    printf : function, default print function
+        a function that could replace print 
     
     ps.可在StructLogFuns中 新增类别
     '''
@@ -720,8 +797,31 @@ def filterMethodName(attrName, attr):
         return colorFormat.b%('【f_builtins %d omitted】'%len(attr))
     return attr
 
-def dira(instance, pattern=None, deep=None, maxDocLen=50, printf=print, __printClassFathers=True):
+def dira(instance, pattern=None, deep=None, maxDocLen=50, printf=print, printClassFathers=True):
     '''
+    `dira(x)` is supplement of `dir(x)`. 
+    `dira(x)` will pretty print `x`'s all attribute in tree struct.    
+    And `dira(x)` will print `x`'s Father Classes too.    
+    
+    Parameters
+    ----------
+    instance : Anything
+        Anything, Instance better
+    pattern : re.pattern
+        use re.search to filter attrs
+    deep : int, default None
+        max deep of struct object
+    maxDocLen : int, default 50
+        max len of doc
+    printf : function, default print function
+        a function that could replace print 
+        
+    P.S.unfold ('__globals__', 'func_globals', __builtins__, __all__, f_builtins)
+    
+    
+    Old Chinese
+    ---------
+    
     以树的结构 分析instance的所有 attrs, 并展示父类的继承链
     attr name用红色；str(instance.attr)用蓝色；
     如果attr 为instancemethod，builtin_function_or_method，method-wrapper之一
@@ -739,13 +839,13 @@ def dira(instance, pattern=None, deep=None, maxDocLen=50, printf=print, __printC
         若有文档显示文档的字数长度
     deep : int, default None
         能显示的最深深度, 默认不限制
-    printf : funcation, default print funcation
-        a funcation that could replace print 
+    printf : function, default print function
+        a function that could replace print 
         
     ps.可在__attrLogFuns中 新增常见类别
     pps.不展开 ('__globals__', 'func_globals', __builtins__, __all__, f_builtins)
     '''
-    if __printClassFathers:
+    if printClassFathers:
         s = prettyClassFathers(instance)
         printf((colorFormat.b%'Classes: \n'+'└── '+s+''))
     
@@ -817,7 +917,7 @@ def what(anything, full=False):
         
     doStr('-'*10+clf.b%'end of what(' + clf.p%('"%s"'%shortStr(tostr, 30)) + clf.b%')'+'-'*10)
     diraPrintf = PrintStrCollect()
-    dira(anything, deep=2, __printClassFathers=False, printf=diraPrintf)
+    dira(anything, deep=2, printClassFathers=False, printf=diraPrintf)
     doStr(diraPrintf)
     doStr("")
     doStr((colorFormat.b%'Document: \n'+'└── '+tabstr(doc, 5)+'\n'))    

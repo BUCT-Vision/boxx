@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+General Python Tools for Debugging, Logging, Magic .etc
+
+@author: yanglei
+"""
 
 from __future__ import unicode_literals
 
@@ -10,23 +15,25 @@ from .toolLog import (stdout, log, logc, printt, PrintStrCollect, printToStr, lo
                       LogLoopTime, SuperG, sg, g, gg, cf, p, pp, lc, out)
 from .toolLog import colorFormat, clf, pblue, pred, pdanger, perr, pinfo, decolor
 from .toolLog import strnum, percentStr, notationScientifique
-from .toolLog import prettyClassFathers, prettyFrameLocation, prettyFrameStack, withprint, wp
+from .toolLog import prettyClassFathers, prettyFrameLocation, prettyFrameStack, wp, wg, wgg
 from .toolLog import localTimeStr, gmtTimeStr, timeGap, timegap
 
-from .toolStructObj import (dicToObj, dicto, typeNameOf, typestr, getfathers, getfather, generator,
-                            nextiter, listToBatch, ll, FunAddMagicMethod, mf, addCall)
+from .toolStructObj import (dicToObj, dicto, typeNameOf, typestr, strMethodForDiraAttrs, 
+                            getfathers, getfather, generator,
+                            nextiter, listToBatch, ll, FunAddMagicMethod, mf, addCall,
+                            setself, unfoldself, withfun, withattr, isinstancestr)
 
 from .toolIo import (getsize, getsizem, listdir, filename, openread, openwrite, replaceTabInPy, saveData, 
-                    loadData, fileJoinPath,  warn, BoxxException, BoxxWarning, OffScreenWarning,
-                    Except, excep, getExcept)
+                    loadData, fileJoinPath,  warn, warn1time, BoxxException, BoxxWarning, OffScreenWarning,
+                    Except, excep, getExcept, browserOpen)
 save_data = saveData
 load_data = loadData
 
-from .toolSystem import (crun, frun, timeit, heatmap, getArgvDic, softInPath, execmd, addPathToSys)
+from .toolSystem import (crun, performance, timeit, heatmap, getArgvDic, softInPath, execmd, addPathToSys)
 from .toolSystem import importAllFunCode, impt, tryImport, FakeModule, removeImportSelf,  removeimp
-from .toolSystem import getRootFrame, getFatherFrames#, exceptionHook
+from .toolSystem import getMainFrame, getRootFrame, getFatherFrames#, exceptionHook
 
-from .toolFuncation import (getFunName, dynamicWraps, setTimeOut, pipe,
+from .toolFunction import (getFunName, dynamicWraps, setTimeOut, pipe,
                            setInterval, multiThread, mapmp, mapmt, retry)
 
 from .toolTools import (increase, filterList, findints, randint, randfloat, randchoice,
@@ -41,7 +48,7 @@ dictd = defaultdict
 odict = OrderedDict
 
 from time import sleep
-from functools import reduce
+from functools import reduce, wraps
 from operator import add, sub, mul
 if py2:
     from operator import div

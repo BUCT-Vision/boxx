@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Created on Wed Apr 18 21:27:28 2018
+A module provide system info and Python Info for boxx
 
 @author: yanglei
 """
@@ -44,7 +44,7 @@ py2 = (pyv == 2)
 
 
 linuxYl = sys.platform.startswith('linux')
-windowsYl = sys.platform.startswith('win')
+winYl = sys.platform.startswith('win')
 osxYl = sys.platform.startswith('darwin')
 
 import multiprocessing as __module
@@ -55,13 +55,14 @@ cloud = cpun > 16
 if linuxYl or osxYl:
     cuda = not os.system('nvcc --version> /dev/null 2>&1')
 else:
+    # TODO:
     cuda = 'Not Implemented'
 usecuda = 'auto' # auto: auto, False: not use
     
 if linuxYl or osxYl:
     homeYl = os.getenv('HOME') + '/'
     tmpYl = '/tmp/'
-elif windowsYl:
+elif winYl:
     homeYl = os.path.expanduser("~")
     tmpYl = os.getenv('TMP') + '\\'
 
@@ -77,7 +78,7 @@ class __TmpboxxWithCall(str):
         return self
 tmpboxx = __TmpboxxWithCall(os.path.join(tmpYl,'boxxTmp/'))
 
-class pyi():
+class PythonInfo():
     '''
     python info
     
@@ -100,23 +101,43 @@ class pyi():
     qtipython = env == 'qtipython'
     jn = env == 'jn'
     
+    interactive = bool(getattr(sys, 'ps1', sys.flags.interactive))
+    
     plt = True
     if not gui and linuxYl and 'DISPLAY' not in os.environ :
         plt =  False
-    
+    reloadplt = False
+    def __str__(self):
+        from boxx import strMethodForDiraAttrs
+        return strMethodForDiraAttrs(self)
+    __repr__ = __str__
+pyi = PythonInfo()
+
 class SystemInfo():
     '''
     sys info
     '''
+    pyv = pyv
+    cpun = cpun
+    cuda = cuda
+    tmp = tmpYl
+    
+    linux = linuxYl
+    win = winYl
+    osx = osxYl
+    
     os = sys.platform
     display = True
     if linuxYl:
         display = 'DISPLAY' in environ and environ['DISPLAY']
     gui = pyi.gui or display
-    
-    @property
-    def ip(self):
-        return '127.0.0.1'
+    if 0:
+        @property
+        def ip(self):
+            '''
+            TODO:
+            '''
+            return '127.0.0.1'
     @property
     def user(self):
         import getpass
@@ -125,4 +146,8 @@ class SystemInfo():
     def host(self):
         import platform
         return platform.node()
+    def __str__(self):
+        from boxx import strMethodForDiraAttrs
+        return strMethodForDiraAttrs(self)
+    __repr__ = __str__
 sysi = SystemInfo()
