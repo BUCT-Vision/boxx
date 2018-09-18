@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 Tool-box for efficient build and debug in Python. 
 Espacially for Scientific Computing and Computer Vision.
 '''
-__version__ = "0.9.1.3"
+__version__ = "0.9.2.1"
 __short_description__ = "Tool-box for efficient build and debug in Python. Especially for Scientific Computing and Computer Vision."
 __license__ = "MIT"
 __author__ = "DIYer22"
@@ -21,7 +21,7 @@ from . import ylsys
 from . import ylcompat
 from . import tool
 from . import ylimg
-from . import ylnp
+from . import ylsci
 from . import ylml
 from . import yldb
 from . import undetermined
@@ -33,7 +33,7 @@ from .ylsys import *
 from .ylcompat import *
 from .ylimg import *
 from .ylml import *
-from .ylnp import *
+from .ylsci import *
 
 
 if __name__ == '__main__':

@@ -151,7 +151,7 @@ Even multiprocessing can't work on Windows sometimes""")
         lenn = len(l)
         if printfreq < 1:
             printfreq = int(round(lenn*printfreq))
-        
+            printfreq = max(1, printfreq)
         def yieldWithIndFun(fun, iterables, lenn, logf, printfreq):
             for i,args in enumerate(zip(*iterables)):
                 yield (fun, args, None if i%printfreq else i, lenn, logf)
@@ -185,6 +185,20 @@ def mapmt(fun, *mapArgList, **kv):
         线程数目，默认为CPU进程数
     '''
     return mapmp(fun, *mapArgList,thread=True, **kv)
+
+def maptry(fun, *mapArgList, **kv):
+    '''
+    test spend time while use `map`, `mapmt`, `mapmp`
+    '''
+    from boxx import timeit, pblue
+    pblue('Begin test map!')
+    with timeit('map2'):
+        list(map(fun, *mapArgList))
+    with timeit('mapmt'):
+        list(mapmt(fun, *mapArgList, **kv))
+    with timeit('mapmp'):
+        list(mapmp(fun, *mapArgList, **kv))
+
 
 class multiThread():
     '''

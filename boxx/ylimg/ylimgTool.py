@@ -8,8 +8,8 @@ from ..tool.toolLog import log, PrintStrCollect, colorFormat, clf, tounicode, Lo
 from ..tool.toolLog import tabstr, getDoc, shortStr, discrib, strnum
 from ..tool.toolFunction import mapmp, pipe
 from ..tool.toolSystem import tryImport
-from ..ylsys import tmpYl, pyi, py2
-from ..ylnp import isNumpyType
+from ..ylsys import tmpYl, pyi, py2, sysi
+from ..ylsci.ylnp import isNumpyType
 from ..ylcompat import interactivePlot, beforImportPlt
 
 import skimage as sk
@@ -98,6 +98,30 @@ def tprgb(ndarray):
         return ndarray.transpose(*axes)
     return ndarray
 tprgb = FunAddMagicMethod(tprgb)
+
+
+def padding(img, urdl=1):
+    '''
+    padding image for up, right, down, left
+    '''
+    if not isinstance(urdl, list):
+        urdl = [urdl] * 4
+    from ..tool import intround
+    u, r, d, l = map(intround, urdl)
+    h, w = img.shape[:2]
+    hh = h + u + d
+    ww = w + r + l
+    bimg = np.zeros((hh, ww,) + img.shape[2:], img.dtype)
+    bimg[u:hh-d, l:ww-r] = img
+    return bimg
+
+def toPng(img):
+    '''
+    add alpha channel to be a png picture
+    '''
+    if img.shape[-1] == 3:
+        return np.append(img, np.ones(img.shape[:-1]+(1,), img.dtype)* (255 if isNumpyType(img, 'int') else 1), 2)
+    return img
 
 def torgb(img):
     '''
@@ -436,6 +460,8 @@ def showb(*arr,**__kv):
         imsave(path,arr)
         arr = path
     cmd = 'shotwell "%s" &'%arr
+    if sysi.win:
+        cmd = '"%s"'%arr
     os.system(cmd)
 showb = FunAddMagicMethod(showb)
 

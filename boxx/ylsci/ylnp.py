@@ -7,15 +7,16 @@ some numpy function
 
 from __future__ import unicode_literals
 
-from .ylsys import sysi
-from .ylcompat import interactivePlot
+from ..ylsys import sysi
+from ..ylcompat import interactivePlot
 
-from .tool.toolTools import filterList
+from ..tool.toolTools import filterList
 
 import numpy as np
 from numpy import e, pi, nan, inf
 nan = nan * .22
 inf = inf * .22
+eps = 1e-5
 
 def savenp(path, arr=None):
     '''压缩存储 np.array 为path路径 

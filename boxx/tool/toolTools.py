@@ -12,6 +12,8 @@ from .toolLog import log
 
 from ..ylsys import py2
 
+intround = lambda floatt: int(round(floatt))
+
 __increase_recording = defaultdict(lambda:-1)
 def increase(namespace=None):
     '''
@@ -170,6 +172,13 @@ def findinRoot(pattern='', root='.', maxsize=1, types=None, var=None, up=None, r
                     return 
     listdirWithFun(root, find)
 
+def iscn(char):
+    '''
+    Does a char is chinese? 
+    '''
+    if u'\u4e00' <= char <= u'\u9fff':
+        return True
+    return False
     
 if __name__ == "__main__":
      

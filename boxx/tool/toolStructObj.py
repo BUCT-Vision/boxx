@@ -25,6 +25,36 @@ def listToBatch(listt, batch):
         ziped.append(tail)
     return ziped
 
+class _SliceToInt():
+    ''' convert float to int when in slice
+    >>> range(5)[sliceInt[3.3]]
+    3
+    
+    >>> range(5)[sliceInt[-0.1: 3.3]]
+    range(0, 3)
+    
+    '''
+    def intround(self, v):
+        if v is None:
+            return v
+        return int(round(v))
+    def __intSlice(self, s):
+        f = self.intround
+        return slice(f(s.start), f(s.stop), f(s.step),)
+        
+    def __getitem__(self, slicee):
+        def f(t):
+            if isinstance(t, tuple):
+                return tuple(f(i) for i in t)
+            else:
+                if isinstance(t, slice):
+                    return self.__intSlice(t)
+                return t
+        if isinstance(slicee, (tuple, slice)):
+            return f(slicee)
+        return int(round(slicee))
+sliceInt = _SliceToInt()
+
 class Ll(list):
     '''
     a tool for convenient list operate
@@ -127,6 +157,9 @@ class FunAddMagicMethod(FunAddMagicMethodCore):
             return FunAddMagicMethodCore.__getattribute__(self, name, *l)
         return getattr(fun,name, *l)
 mf = FunAddMagicMethod(FunAddMagicMethod)
+
+# invalid a function
+fnone = mf(lambda *l, **kv: l[0] if len(l)==1 else l)
 
 class dicto(dict):
     '''

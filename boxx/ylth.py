@@ -18,9 +18,9 @@ with withfun(exitFun=importYlthRequire, exception=True):
     from torchsummary import summary
 #    import torchviz
 
-import matplotlib.pyplot as plt
-import skimage.io as sio
-import skimage.data as sda
+#import matplotlib.pyplot as plt
+#import skimage.io as sio
+#import skimage.data as sda
 from collections import OrderedDict
 from functools import wraps
 
@@ -83,7 +83,7 @@ def toCpu():
     nn.Module.cuda = cudaAttri
     Variable.cuda = cudaAttri
     torch.Tensor.cuda = cudaAttri
-    
+    torch.Tensor.to = cudaAttri
     
 #    class FakeDataParallel(torch.nn.DataParallel):
 #        def __init__(self, x):
@@ -100,6 +100,10 @@ def toCpu():
         def __exit__(self, typee, value, traceback):
             pass
     torch.cuda.device = withh
+    from boxx import fnone
+    torch.cuda.set_device = fnone
+    torch.cuda.is_available = lambda :True
+    
 
     th.cuda.LongTensor = th.LongTensor
     th.cuda.DoubleTensor = th.DoubleTensor
@@ -249,6 +253,19 @@ def vizmodel(m, shape=None):
     x.to(getpara(m))
     graph = make_dot(m(x), params=dict(m.named_parameters()))
     return graph
+
+def flatten(t, dim=-1):
+    '''
+    >>> t = shape(1,2,3,4) 
+    >>> flatten(t, dim=-2)
+    shape(1,6,4)
+    '''
+    shape = list(t.shape)
+    shape[dim-1] *= shape[dim]
+    shape.pop(dim)
+    return t.reshape(tuple(shape))
+
+
 if __name__ == '__main__':
     l = ['LongTensor',
      'DoubleTensor',

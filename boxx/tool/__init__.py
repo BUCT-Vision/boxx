@@ -16,15 +16,16 @@ from .toolLog import (stdout, log, logc, printt, PrintStrCollect, printToStr, lo
 from .toolLog import colorFormat, clf, pblue, pred, pdanger, perr, pinfo, decolor
 from .toolLog import strnum, percentStr, notationScientifique
 from .toolLog import prettyClassFathers, prettyFrameLocation, prettyFrameStack, wp, wg, wgg
-from .toolLog import localTimeStr, gmtTimeStr, timeGap, timegap
+from .toolLog import localTimeStr, gmtTimeStr, timeGap, timegap, logGap
 
 from .toolStructObj import (dicToObj, dicto, typeNameOf, typestr, strMethodForDiraAttrs, 
-                            getfathers, getfather, generator,
-                            nextiter, listToBatch, ll, FunAddMagicMethod, mf, addCall,
+                            getfathers, getfather, generator, nextiter, listToBatch, 
+                            sliceInt, ll, FunAddMagicMethod, mf, fnone, addCall,
                             setself, unfoldself, withfun, withattr, isinstancestr)
 
-from .toolIo import (getsize, getsizem, listdir, filename, openread, openwrite, replaceTabInPy, saveData, 
-                    loadData, fileJoinPath,  warn, warn1time, BoxxException, BoxxWarning, OffScreenWarning,
+from .toolIo import (getsize, getsizem, listdir, filename, openread, openwrite, validFilename,
+                     saveData, loadData, loadjson, savejson, fileJoinPath,  warn, 
+                    replaceTabInPy, warn1time, BoxxException, BoxxWarning, OffScreenWarning,
                     Except, excep, getExcept, browserOpen)
 save_data = saveData
 load_data = loadData
@@ -34,10 +35,10 @@ from .toolSystem import importAllFunCode, impt, tryImport, FakeModule, removeImp
 from .toolSystem import getMainFrame, getRootFrame, getFatherFrames#, exceptionHook
 
 from .toolFunction import (getFunName, dynamicWraps, setTimeOut, pipe,
-                           setInterval, multiThread, mapmp, mapmt, retry)
+                           setInterval, multiThread, mapmp, mapmt, maptry, retry)
 
-from .toolTools import (increase, filterList, findints, randint, randfloat, randchoice,
-                       listdirWithFun, replaceAllInRoot, findinRoot)
+from .toolTools import (intround, increase, filterList, findints, randint, randfloat, randchoice,
+                       listdirWithFun, replaceAllInRoot, findinRoot, iscn)
 
 from glob import glob
 from os.path import join as pathjoin
@@ -58,7 +59,6 @@ from fn import _ as x_
 x = x_
 
 from functools import wraps
-
 
 if __name__ == "__main__":
     pass
